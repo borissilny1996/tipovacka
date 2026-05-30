@@ -1,0 +1,18 @@
+{
+  "frontendFolder": "C:/Users/boris/dev/projects/tipovacka/./src/main/frontend",
+  "themeFolder": "themes",
+  "themeResourceFolder": "C:/Users/boris/dev/projects/tipovacka/./src/main/frontend/generated/jar-resources",
+  "staticOutput": "C:/Users/boris/dev/projects/tipovacka/target/classes/META-INF/VAADIN/webapp/VAADIN/static",
+  "generatedFolder": "generated",
+  "statsOutput": "C:\\Users\\boris\\dev\\projects\\tipovacka\\target\\classes\\META-INF\\VAADIN\\config",
+  "frontendBundleOutput": "C:\\Users\\boris\\dev\\projects\\tipovacka\\target\\classes\\META-INF\\VAADIN\\webapp",
+  "devBundleOutput": "C:/Users/boris/dev/projects/tipovacka/target/dev-bundle/webapp",
+  "devBundleStatsOutput": "C:/Users/boris/dev/projects/tipovacka/target/dev-bundle/config",
+  "i18nOutput": "target/classes/vaadin-i18n",
+  "jarResourcesFolder": "C:/Users/boris/dev/projects/tipovacka/./src/main/frontend/generated/jar-resources",
+  "themeName": "",
+  "clientServiceWorkerSource": "C:\\Users\\boris\\dev\\projects\\tipovacka\\target\\sw.ts",
+  "pwaEnabled": false,
+  "offlineEnabled": false,
+  "offlinePath": "'offline.html'"
+}

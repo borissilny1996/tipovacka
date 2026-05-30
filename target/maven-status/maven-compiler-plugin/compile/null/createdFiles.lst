@@ -1,0 +1,17 @@
+sk\tipovacka\domain\Team.class
+sk\tipovacka\ui\LeaderboardView.class
+sk\tipovacka\ui\LeaderboardView$RankEntry.class
+sk\tipovacka\domain\MatchOutcome.class
+sk\tipovacka\ui\MainLayout.class
+sk\tipovacka\domain\Participant.class
+sk\tipovacka\ui\admin\AdminView.class
+sk\tipovacka\domain\Competition.class
+sk\tipovacka\domain\CompetitionGuess.class
+sk\tipovacka\service\GuessService.class
+sk\tipovacka\service\ScoringService.class
+sk\tipovacka\domain\MatchGuess.class
+sk\tipovacka\config\ScoringConfig.class
+sk\tipovacka\ui\GuessView.class
+sk\tipovacka\service\CompetitionService.class
+sk\tipovacka\domain\Match.class
+sk\tipovacka\ui\LeaderboardView$GuessRow.class
