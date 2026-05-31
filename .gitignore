@@ -1,0 +1,49 @@
+# ── Maven ─────────────────────────────────────────────────────────────────────
+target/
+
+# ── H2 file-based database ────────────────────────────────────────────────────
+# Contains live application data — never commit this
+data/
+
+# ── Quarkus ───────────────────────────────────────────────────────────────────
+.quarkus/
+
+# ── Vaadin frontend build artefacts ──────────────────────────────────────────
+# Generated automatically on first build/dev run
+node_modules/
+package.json
+package-lock.json
+pnpm-lock.yaml
+.pnpm-store/
+src/main/resources/META-INF/resources/VAADIN/
+src/main/frontend/generated/
+src/main/frontend/index.html
+src/main/bundles/
+
+# ── IntelliJ IDEA ─────────────────────────────────────────────────────────────
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# ── Eclipse ───────────────────────────────────────────────────────────────────
+.eclipse/
+.settings/
+.project
+.classpath
+bin/
+
+# ── VS Code ───────────────────────────────────────────────────────────────────
+.vscode/
+
+# ── Environment / secrets ─────────────────────────────────────────────────────
+.env
+.env.local
+application-local.properties
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Claude Code project settings ──────────────────────────────────────────────
+.claude/
