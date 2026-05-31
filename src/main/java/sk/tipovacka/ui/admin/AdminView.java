@@ -1,5 +1,6 @@
 package sk.tipovacka.ui.admin;
 
+import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -9,48 +10,113 @@ import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Hr;
-import com.vaadin.flow.component.notification.Notification;
-import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.IntegerField;
+import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.VaadinSession;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import sk.tipovacka.domain.Competition;
 import sk.tipovacka.domain.Match;
 import sk.tipovacka.domain.Team;
 import sk.tipovacka.service.CompetitionService;
 import sk.tipovacka.ui.MainLayout;
-import sk.tipovacka.util.IntegerFieldUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 import static sk.tipovacka.util.IntegerFieldUtils.getIntegerFieldValueOrDefault;
+import static sk.tipovacka.util.NotificationUtil.showError;
+import static sk.tipovacka.util.NotificationUtil.showSuccess;
 
 @Route(value = "admin", layout = MainLayout.class)
 @PageTitle("Admin | Tipovačka")
 public class AdminView extends VerticalLayout {
 
+    private static final String SESSION_KEY = "tipovacka.admin.authenticated";
+
     private final CompetitionService competitionService;
+    private final String adminPassword;
 
     private Grid<Competition> competitionGrid;
     private VerticalLayout detailSection;
 
     @Inject
-    public AdminView(CompetitionService competitionService) {
+    public AdminView(CompetitionService competitionService,
+                     @ConfigProperty(name = "tipovacka.admin.password") String adminPassword) {
         this.competitionService = competitionService;
+        this.adminPassword = adminPassword;
         setPadding(true);
         setSpacing(true);
         buildUI();
     }
 
+    // ── Entry point ───────────────────────────────────────────────────────────
+
     private void buildUI() {
+        removeAll();
+        if (isAuthenticated()) {
+            buildAdminContent();
+        } else {
+            buildLoginForm();
+        }
+    }
+
+    // ── Session helpers ───────────────────────────────────────────────────────
+
+    private boolean isAuthenticated() {
+        return Boolean.TRUE.equals(VaadinSession.getCurrent().getAttribute(SESSION_KEY));
+    }
+
+    private void login(String password) {
+        if (adminPassword.equals(password)) {
+            VaadinSession.getCurrent().setAttribute(SESSION_KEY, true);
+            buildUI();
+        } else {
+            showError("Nesprávne heslo.");
+        }
+    }
+
+    private void logout() {
+        VaadinSession.getCurrent().setAttribute(SESSION_KEY, false);
+        buildUI();
+    }
+
+    // ── Login form ────────────────────────────────────────────────────────────
+
+    private void buildLoginForm() {
         add(new H2("Admin"));
 
-        // ── Competition management ──────────────────────────────────────────
+        PasswordField passwordField = new PasswordField("Heslo");
+        passwordField.setWidth("300px");
+        passwordField.setPlaceholder("Zadaj heslo");
+
+        Button enter = new Button("Vstúpiť", e -> login(passwordField.getValue()));
+        enter.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        // Allow submitting with Enter key
+        passwordField.addKeyPressListener(Key.ENTER, e -> login(passwordField.getValue()));
+
+        add(passwordField, enter);
+    }
+
+    // ── Admin content (shown only after successful login) ─────────────────────
+
+    private void buildAdminContent() {
+        HorizontalLayout header = new HorizontalLayout();
+        header.setAlignItems(Alignment.BASELINE);
+        header.setWidthFull();
+        H2 title = new H2("Admin");
+        Button logoutBtn = new Button("Odhlásiť sa", e -> logout());
+        logoutBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        header.add(title, logoutBtn);
+        add(header);
+
+        // ── Competition management ────────────────────────────────────────────
         add(new H3("Competitions"));
 
         Button newCompetition = new Button("+ New Competition", e -> openNewCompetitionDialog());
@@ -67,7 +133,7 @@ public class AdminView extends VerticalLayout {
         refreshCompetitionGrid();
         add(competitionGrid);
 
-        // ── Detail section (populated on competition select) ───────────────
+        // ── Detail section (populated on competition select) ──────────────────
         detailSection = new VerticalLayout();
         detailSection.setPadding(false);
         add(detailSection);
@@ -82,7 +148,7 @@ public class AdminView extends VerticalLayout {
         detailSection.add(new Hr());
         detailSection.add(new H3("Managing: " + competition.name));
 
-        // ── Teams ──────────────────────────────────────────────────────────
+        // ── Teams ─────────────────────────────────────────────────────────────
         detailSection.add(new H3("Teams"));
 
         List<Team> teams = Team.findByCompetition(competition);
@@ -114,7 +180,7 @@ public class AdminView extends VerticalLayout {
         addTeamRow.add(teamNameField, addTeam);
         detailSection.add(addTeamRow);
 
-        // ── Matches ────────────────────────────────────────────────────────
+        // ── Matches ───────────────────────────────────────────────────────────
         detailSection.add(new H3("Matches"));
 
         List<Match> matches = Match.findByCompetition(competition);
@@ -129,7 +195,7 @@ public class AdminView extends VerticalLayout {
         Button addMatchBtn = new Button("+ Add Match", e -> openAddMatchDialog(competition));
         detailSection.add(addMatchBtn);
 
-        // ── Tournament winner ──────────────────────────────────────────────
+        // ── Tournament winner ─────────────────────────────────────────────────
         detailSection.add(new H3("Actual Tournament Winner"));
         List<Team> allTeams = Team.findByCompetition(competition);
         ComboBox<Team> winnerCombo = new ComboBox<>("Set actual winner");
@@ -234,11 +300,5 @@ public class AdminView extends VerticalLayout {
         Button cancel = new Button("Cancel", e -> dialog.close());
         dialog.getFooter().add(cancel, save);
         dialog.open();
-    }
-
-    private void showSuccess(String message) {
-        Notification n = Notification.show(message);
-        n.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-        n.setDuration(3000);
     }
 }

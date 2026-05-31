@@ -7,8 +7,6 @@ import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
-import com.vaadin.flow.component.notification.Notification;
-import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.IntegerField;
@@ -28,6 +26,8 @@ import java.util.List;
 import java.util.Map;
 
 import static sk.tipovacka.util.IntegerFieldUtils.getIntegerFieldValueOrDefault;
+import static sk.tipovacka.util.NotificationUtil.showError;
+import static sk.tipovacka.util.NotificationUtil.showSuccess;
 
 @Route(value = "", layout = MainLayout.class)
 @PageTitle("Submit Guesses | Tipovačka")
@@ -178,17 +178,9 @@ public class GuessView extends VerticalLayout {
 
         try {
             guessService.submit(nickname, competition, winnerCombo.getValue(), scores);
-            Notification n = Notification.show("Tvoje tipy boli úspešne pridané!");
-            n.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-            n.setDuration(4000);
+            showSuccess("Tvoje tipy boli úspešne pridané!");
         } catch (Exception ex) {
             showError(ex.getMessage());
         }
-    }
-
-    private void showError(String message) {
-        Notification n = Notification.show(message);
-        n.addThemeVariants(NotificationVariant.LUMO_ERROR);
-        n.setDuration(5000);
     }
 }
