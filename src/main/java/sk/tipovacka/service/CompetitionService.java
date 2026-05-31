@@ -2,6 +2,7 @@ package sk.tipovacka.service;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import sk.tipovacka.domain.*;
 
@@ -14,6 +15,43 @@ public class CompetitionService {
 
     @Inject
     GuessService guessService;
+
+    @Inject
+    EntityManager em;
+
+    @Transactional
+    public void deleteCompetition(Long competitionId) {
+        Competition competition = Competition.findById(competitionId);
+        if (competition == null) {
+            return;
+        }
+
+        // Null out actual_winner_id FK first so we can delete Teams later.
+        competition.actualWinner = null;
+        em.flush();
+
+        // Delete in FK dependency order using bulk JPQL.
+        // JPQL path expressions in WHERE are valid and avoid loading everything into memory.
+        em.createQuery("DELETE FROM MatchGuess mg WHERE mg.match.competition = :c")
+                .setParameter("c", competition).executeUpdate();
+        em.createQuery("DELETE FROM CompetitionGuess cg WHERE cg.competition = :c")
+                .setParameter("c", competition).executeUpdate();
+        em.createQuery("DELETE FROM Match m WHERE m.competition = :c")
+                .setParameter("c", competition).executeUpdate();
+        em.createQuery("DELETE FROM Team t WHERE t.competition = :c")
+                .setParameter("c", competition).executeUpdate();
+
+        competition.delete();
+    }
+
+    @Transactional
+    public void deleteCompetitionGuess(Long competitionGuessId) {
+        // Load then remove so orphanRemoval cascades to MatchGuess.
+        CompetitionGuess guess = CompetitionGuess.findById(competitionGuessId);
+        if (guess != null) {
+            guess.delete();
+        }
+    }
 
     public Optional<Competition> findActive() {
         return Competition.findActive();
