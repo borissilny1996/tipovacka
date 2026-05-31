@@ -20,7 +20,9 @@ import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.VaadinSession;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import com.vaadin.flow.component.html.Paragraph;
 import sk.tipovacka.domain.Competition;
+import sk.tipovacka.domain.CompetitionGuess;
 import sk.tipovacka.domain.Match;
 import sk.tipovacka.domain.Team;
 import sk.tipovacka.service.CompetitionService;
@@ -123,15 +125,7 @@ public class AdminView extends VerticalLayout {
         newCompetition.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         add(newCompetition);
 
-        competitionGrid = new Grid<>();
-        competitionGrid.addColumn(c -> c.name).setHeader("Name");
-        competitionGrid.addColumn(c -> c.sport + " " + c.year).setHeader("Sport / Year");
-        competitionGrid.addColumn(c -> c.submissionDeadline.toString()).setHeader("Deadline");
-        competitionGrid.addColumn(c -> c.active ? "Active" : "Inactive").setHeader("Status");
-        competitionGrid.setAllRowsVisible(true);
-        competitionGrid.addItemClickListener(e -> loadCompetitionDetail(e.getItem()));
-        refreshCompetitionGrid();
-        add(competitionGrid);
+        add(createAndPopulateCompetitionGrid());
 
         // ── Detail section (populated on competition select) ──────────────────
         detailSection = new VerticalLayout();
@@ -139,8 +133,47 @@ public class AdminView extends VerticalLayout {
         add(detailSection);
     }
 
+    private Grid<Competition> createAndPopulateCompetitionGrid() {
+        competitionGrid = new Grid<>();
+        competitionGrid.addColumn(c -> c.name).setHeader("Name");
+        competitionGrid.addColumn(c -> c.sport + " " + c.year).setHeader("Sport / Year");
+        competitionGrid.addColumn(c -> c.submissionDeadline.toString()).setHeader("Deadline");
+        competitionGrid.addColumn(c -> c.active ? "Active" : "Inactive").setHeader("Status");
+        competitionGrid.addComponentColumn(c -> {
+            Button del = new Button("Delete", e -> confirmDeleteCompetition(c));
+            del.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
+            return del;
+        }).setHeader("").setWidth("100px").setFlexGrow(0);
+        competitionGrid.setAllRowsVisible(true);
+        competitionGrid.addItemClickListener(e -> loadCompetitionDetail(e.getItem()));
+        refreshCompetitionGrid();
+        return competitionGrid;
+    }
+
     private void refreshCompetitionGrid() {
         competitionGrid.setItems(competitionService.listAll());
+    }
+
+    private void confirmDeleteCompetition(Competition competition) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Zmazať súťaž");
+
+        dialog.add(new Paragraph(
+                "Naozaj chceš zmazať súťaž \"" + competition.name + "\"? " +
+                "Budú vymazané všetky tímy, zápasy, tipy a výsledky. Táto akcia je nevratná."));
+
+        Button confirm = new Button("Zmazať", e -> {
+            competitionService.deleteCompetition(competition.id);
+            dialog.close();
+            detailSection.removeAll();
+            refreshCompetitionGrid();
+            showSuccess("Súťaž \"" + competition.name + "\" bola vymazaná.");
+        });
+        confirm.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_PRIMARY);
+
+        Button cancel = new Button("Zrušiť", e -> dialog.close());
+        dialog.getFooter().add(cancel, confirm);
+        dialog.open();
     }
 
     private void loadCompetitionDetail(Competition competition) {
@@ -150,21 +183,7 @@ public class AdminView extends VerticalLayout {
 
         // ── Teams ─────────────────────────────────────────────────────────────
         detailSection.add(new H3("Teams"));
-
-        List<Team> teams = Team.findByCompetition(competition);
-        Grid<Team> teamGrid = new Grid<>();
-        teamGrid.addColumn(t -> t.name).setHeader("Team name");
-        teamGrid.addComponentColumn(t -> {
-            Button del = new Button("Remove", e -> {
-                competitionService.removeTeam(t.id);
-                loadCompetitionDetail(competition);
-            });
-            del.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
-            return del;
-        }).setHeader("");
-        teamGrid.setItems(teams);
-        teamGrid.setAllRowsVisible(true);
-        detailSection.add(teamGrid);
+        detailSection.add(createAndPopulateTeamsGrid(competition));
 
         HorizontalLayout addTeamRow = new HorizontalLayout();
         addTeamRow.setAlignItems(Alignment.BASELINE);
@@ -182,16 +201,7 @@ public class AdminView extends VerticalLayout {
 
         // ── Matches ───────────────────────────────────────────────────────────
         detailSection.add(new H3("Matches"));
-
-        List<Match> matches = Match.findByCompetition(competition);
-        Grid<Match> matchGrid = new Grid<>();
-        matchGrid.addColumn(m -> m.homeTeam.name + " vs " + m.awayTeam.name).setHeader("Match");
-        matchGrid.addColumn(m -> m.hasResult() ? m.homeScore + " : " + m.awayScore : "—").setHeader("Result");
-        matchGrid.addComponentColumn(m -> buildResultEditor(m, competition)).setHeader("Set result");
-        matchGrid.setItems(matches);
-        matchGrid.setAllRowsVisible(true);
-        detailSection.add(matchGrid);
-
+        detailSection.add(createAndPopulateMatchGrid(competition));
         Button addMatchBtn = new Button("+ Add Match", e -> openAddMatchDialog(competition));
         detailSection.add(addMatchBtn);
 
@@ -211,6 +221,80 @@ public class AdminView extends VerticalLayout {
             }
         });
         detailSection.add(new HorizontalLayout(winnerCombo, saveWinner));
+
+        // ── Participants ───────────────────────────────────────────────────────
+        detailSection.add(new H3("Participants"));
+        List<CompetitionGuess> guesses = CompetitionGuess.leaderboard(competition);
+        if (guesses.isEmpty()) {
+            detailSection.add(new Paragraph("Zatiaľ žiadne tipy pre túto súťaž."));
+        } else {
+            detailSection.add(createAndPopulateParticipantsGrid(competition, guesses));
+        }
+    }
+
+    private Grid<Team> createAndPopulateTeamsGrid(Competition competition) {
+        List<Team> teams = Team.findByCompetition(competition);
+        Grid<Team> teamGrid = new Grid<>();
+        teamGrid.addColumn(t -> t.name).setHeader("Team name");
+        teamGrid.addComponentColumn(t -> {
+            Button del = new Button("Remove", e -> {
+                competitionService.removeTeam(t.id);
+                loadCompetitionDetail(competition);
+            });
+            del.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
+            return del;
+        }).setHeader("");
+        teamGrid.setItems(teams);
+        teamGrid.setAllRowsVisible(true);
+        return teamGrid;
+    }
+
+    private Grid<CompetitionGuess> createAndPopulateParticipantsGrid(Competition competition, List<CompetitionGuess> guesses) {
+        Grid<CompetitionGuess> participantGrid = new Grid<>();
+        participantGrid.addColumn(cg -> cg.participant.nickname)
+                .setHeader("Nickname").setWidth("200px").setFlexGrow(0);
+        participantGrid.addComponentColumn(cg -> {
+            Button del = new Button("Delete", e -> confirmDeleteGuess(cg, competition));
+            del.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
+            return del;
+        }).setHeader("").setWidth("100px").setFlexGrow(0);
+        participantGrid.setItems(guesses);
+        participantGrid.setAllRowsVisible(true);
+        participantGrid.setWidth("320px");
+        return participantGrid;
+    }
+
+    private Grid<Match> createAndPopulateMatchGrid(Competition competition) {
+        List<Match> matches = Match.findByCompetition(competition);
+        Grid<Match> matchGrid = new Grid<>();
+        matchGrid.addColumn(m -> m.homeTeam.name + " vs " + m.awayTeam.name).setHeader("Match");
+        matchGrid.addColumn(m -> m.hasResult() ? m.homeScore + " : " + m.awayScore : "—").setHeader("Result");
+        matchGrid.addComponentColumn(m -> buildResultEditor(m, competition)).setHeader("Set result");
+        matchGrid.setItems(matches);
+        matchGrid.setAllRowsVisible(true);
+        return matchGrid;
+    }
+
+    private void confirmDeleteGuess(CompetitionGuess guess, Competition competition) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Zmazať tipy");
+
+        dialog.add(new Paragraph(
+                "Zmazať všetky tipy účastníka \"" + guess.participant.nickname + "\" " +
+                "pre súťaž \"" + competition.name + "\"? " +
+                "Účastník bude môcť zadať tipy znovu. Táto akcia je nevratná."));
+
+        Button confirm = new Button("Zmazať", e -> {
+            competitionService.deleteCompetitionGuess(guess.id);
+            dialog.close();
+            showSuccess("Tipy účastníka \"" + guess.participant.nickname + "\" boli vymazané.");
+            loadCompetitionDetail(competition);
+        });
+        confirm.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_PRIMARY);
+
+        Button cancel = new Button("Zrušiť", e -> dialog.close());
+        dialog.getFooter().add(cancel, confirm);
+        dialog.open();
     }
 
     private HorizontalLayout buildResultEditor(Match match, Competition competition) {
